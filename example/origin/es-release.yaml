@@ -5,6 +5,24 @@ kind: Namespace
 metadata:
   name: my-es-namespace
 ---
+# Source: elasticsearch/templates/es_node_pod_disruption_budget.yaml
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/instance: es-sxsecs
+    app.kubernetes.io/name: elasticsearch
+    statefulset-name: es-sxsecs-nodes
+  name: es-sxsecs-nodes
+  namespace: my-es-namespace
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: elasticsearch
+      app.kubernetes.io/instance: es-sxsecs
+      statefulset-name: es-sxsecs-nodes
+---
 # Source: elasticsearch/templates/es-config.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -12,7 +30,8 @@ metadata:
   name: es-sxsecs-elasticsearch-config
   namespace: my-es-namespace
   labels:
-    app: elasticsearch
+    app.kubernetes.io/instance: es-sxsecs
+    app.kubernetes.io/name: elasticsearch
     statefulset-name: es-sxsecs-nodes
 data:
   elasticsearch.yml: |+
@@ -31,7 +50,8 @@ metadata:
   name: es-es-sxsecs-headless
   namespace: my-es-namespace
   labels:
-    app: elasticsearch
+    app.kubernetes.io/instance: es-sxsecs
+    app.kubernetes.io/name: elasticsearch
     statefulset-name: es-sxsecs-nodes
 spec:
   ports:
@@ -41,8 +61,9 @@ spec:
       targetPort: 9200
   clusterIP: None
   selector:
+    app.kubernetes.io/instance: es-sxsecs
+    app.kubernetes.io/name: elasticsearch
     statefulset-name: es-sxsecs-nodes
-    app: elasticsearch
 ---
 # Source: elasticsearch/templates/es-svc.yaml
 apiVersion: v1
@@ -51,7 +72,8 @@ metadata:
   name: es-es-sxsecs
   namespace: my-es-namespace
   labels:
-    app: elasticsearch
+    app.kubernetes.io/instance: es-sxsecs
+    app.kubernetes.io/name: elasticsearch
     statefulset-name: es-sxsecs-nodes
 spec:
   ports:
@@ -60,8 +82,9 @@ spec:
       protocol: TCP
       targetPort: 9200
   selector:
+    app.kubernetes.io/instance: es-sxsecs
+    app.kubernetes.io/name: elasticsearch
     statefulset-name: es-sxsecs-nodes
-    app: elasticsearch
   sessionAffinity: None
   type: ClusterIP
 ---
@@ -76,14 +99,31 @@ spec:
   replicas: 3
   selector:
     matchLabels:
-      app: elasticsearch
+      app.kubernetes.io/instance: es-sxsecs
+      app.kubernetes.io/name: elasticsearch
       statefulset-name: es-sxsecs-nodes
   template:
     metadata:
       labels:
-        app: elasticsearch
+        app.kubernetes.io/instance: es-sxsecs
+        app.kubernetes.io/name: elasticsearch
         statefulset-name: es-sxsecs-nodes
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: topology.io/zone
+                operator: In
+                values:
+                - hb-north-1a
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  statefulset-name: es-sxsecs-nodes
+              topologyKey: kubernetes.io/hostname
       initContainers:
         - name: fix-permissions
           image: busybox

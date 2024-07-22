@@ -16,7 +16,7 @@ es:
         jvm:
          heap: 1024m           # 建议配置为节点resources 的requests 的memory的一半，小于31GB
         elasticsearch_yml:
-          minimum_master_nodes: 2     # 为 es节点个数/2 + 1；可以不配置
+          minimum_master_nodes: 2     # 为 es节点个数/2 + 1；7.10以上版本建议移除掉该项配置
       storage:
         size: 20Gi        # 单节点的存储
         storageClassName: "cloud-lvm"      # 存储所使用的storageClass
@@ -27,3 +27,12 @@ es:
         requests:
           cpu: "2000m"
           memory: "2000Mi"
+      affinity:
+        nodeAffinity:        # 节点亲和注意节点，
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.io/zone   # 属主机节点必须要改key-value label
+                    operator: In
+                    values:
+                      - hb-north-1a

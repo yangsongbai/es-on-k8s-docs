@@ -4,7 +4,8 @@ metadata:
   name: {{ .Values.cluster.id }}-elasticsearch-config
   namespace: {{ .Release.Namespace }}
   labels:
-    app: elasticsearch
+    app.kubernetes.io/instance: {{ .Values.cluster.id }}
+    app.kubernetes.io/name: elasticsearch
     statefulset-name: {{ .Values.cluster.id }}-nodes
 data:
   elasticsearch.yml: |+

@@ -4,7 +4,8 @@ metadata:
   name: es-{{ .Values.cluster.id }}
   namespace: {{ .Release.Namespace }}
   labels:
-    app: elasticsearch
+    app.kubernetes.io/instance: {{ .Values.cluster.id }}
+    app.kubernetes.io/name: elasticsearch
     statefulset-name: {{ .Values.cluster.id }}-nodes
 spec:
   ports:
@@ -13,7 +14,8 @@ spec:
       protocol: TCP
       targetPort: 9200
   selector:
+    app.kubernetes.io/instance: {{ .Values.cluster.id }}
+    app.kubernetes.io/name: elasticsearch
     statefulset-name: {{ .Values.cluster.id }}-nodes
-    app: elasticsearch
   sessionAffinity: None
   type: ClusterIP

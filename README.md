@@ -1,4 +1,6 @@
 # es-on-k8s-docs
+**文档内容仅供参考**       
+
 ## 部署
 ### 1 原生镜像
 ```
@@ -27,6 +29,62 @@ kubectl apply -f es-release.yaml
 
 
 #### 2.3 专有master与协调节点  
+
+
+# 故障处理     
+## 单节点故障     
+Q1: **物理机器故障如何迁移？**      
+A1: pod所在物理机故障,查看集群是否green 
+```
+GET  _cluster/health?pretty
+```
+如果集群是green状态，重建故障pod，使其重新分配即可
+**第一步：**     
+查看有问题的pod，被分配在哪一个节点
+```
+kubectl get pod es-xxxx-nodes-2  -o wide -n my-es-namespace
+```
+**第二步：**    
+禁止调度到当前节点
+```
+# NODE_NAME 为第一步获取得到的节点名称
+kubectl cordon NODE_NAME
+```
+
+**第三步**   
+删除对应pod,重新调度到其他机器上       
+```
+kubectl delete pod es-xxxx-nodes-2  -n my-es-namespace     
+```
+如果需要的话，可能需要对属主机，进行`kubectl uncordon NODE`,恢复pod可以调度到该节点上，比如属主机修复好了。     
+
+# 扩容 
+## 水平扩容   
+在k8s中执行命令，或者当前的集群sts值
+```
+kubectl get sts es-sxsecs-node  -o yaml  -n  my-es-namespace > es-sxsecs-node.yaml
+```
+修改其中spec下的`replicas字段的值`，比如从3节点扩容到5节点，replicas的值修改成5即可；   
+然后执行如下命令完成水平扩容     
+```
+kubectl apply -f es-sxsecs-node.yaml -n  my-es-namespace
+```
+
+
+## 垂直扩容
+**⚠注意️**： 保证所有索引都有副本，且盘支持垂直扩容，不会抹除数据;不建议垂直扩容，因为当前不会判断，集群是否green,再进行下一个节点变配，变配会有一定风险，集群可能会处于red状态写入失败，查询失败或者数据不全    
+
+在k8s中执行命令，或者当前的集群sts值
+```
+kubectl get sts es-sxsecs-node  -o yaml  -n  my-es-namespace > es-sxsecs-node.yaml
+```
+修改其中volumeClaimTemplates下的`storage字段的值`，比如从节点20Gi扩容到100Gi，storage的值修改成100Gi即可；   
+然后执行如下命令完成水平扩容
+```
+kubectl apply -f es-sxsecs-node.yaml -n  my-es-namespace
+```
+
+*注意*⚠️：PodDisruptionBudget资源控制；设置 maxUnavailable 为 1，表示在维护期间最多只允许一个 Pod 离线  
 
 
 # 参考 

@@ -8,14 +8,27 @@ spec:
   replicas: {{ .Values.es.node.data_node.replica }}
   selector:
     matchLabels:
-      app: elasticsearch
+      app.kubernetes.io/instance: {{ .Values.cluster.id }}
+      app.kubernetes.io/name: elasticsearch
       statefulset-name: {{ .Values.cluster.id }}-nodes
   template:
     metadata:
       labels:
-        app: elasticsearch
+        app.kubernetes.io/instance: {{ .Values.cluster.id }}
+        app.kubernetes.io/name: elasticsearch
         statefulset-name: {{ .Values.cluster.id }}-nodes
     spec:
+      affinity:
+        {{- with .Values.es.node.data_node.affinity.nodeAffinity }}
+        nodeAffinity:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        podAntiAffinity:    # pod反亲和
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  statefulset-name: {{ .Values.cluster.id }}-nodes
+              topologyKey: kubernetes.io/hostname
       initContainers:
         - name: fix-permissions
           image: busybox

@@ -21,16 +21,6 @@ helm template cluster-release-name ./mix -n my-es-namespace > es-release.yaml
 kubectl apply -f es-release.yaml     
 ```
 
-### 2 自构建镜像
- 未完成  
-#### 2.1 角色混合方式
- 
-#### 2.2 专有master  
-
-
-#### 2.3 专有master与协调节点  
-
-
 # 故障处理     
 ## 单节点故障     
 Q1: **物理机器故障如何迁移？**      

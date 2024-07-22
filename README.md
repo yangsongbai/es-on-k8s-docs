@@ -87,3 +87,46 @@ kubectl apply -f es-sxsecs-node.yaml -n  my-es-namespace
 [7] [Elasticsearch：使用 elasticsearch-keystore 配置安全并创建内置用户账号](https://elasticstack.blog.csdn.net/article/details/113172420)     
 [8] [Elasticsearch：使用 docker compose 来实现热温冷架构的 Elasticsearch 集群](https://elasticstack.blog.csdn.net/article/details/127896705)    
 [9] [Elasticsearch：使用 Docker compose 来一键部署 Elastic Stack 8.x](https://elasticstack.blog.csdn.net/article/details/123958356)    
+[10] [ElasticSearch 8.12.0 K8S部署实践【超详细】【一站式】](https://blog.csdn.net/windywolf301/article/details/136227389)
+
+
+```
+# 步骤1: 生成私钥和CSR
+openssl genrsa -out elasticsearch.key 2048
+openssl req -new -key elasticsearch.key -out elasticsearch.csr -subj "/CN=elasticsearch-cluster/O=elasticsearch"
+ 
+# 步骤2: 使用CA签名证书
+openssl x509 -req -in elasticsearch.csr -signkey elasticsearch.key -out elasticsearch.crt -days 36500
+ 
+# 步骤3: 创建Kubernetes secret
+kubectl create secret tls elasticsearch-tls --cert=elasticsearch.crt --key=elasticsearch.key
+ 
+# 步骤4: 在Elasticsearch部署中引用Kubernetes secret
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+spec:
+  ...
+  template:
+    spec:
+      containers:
+      - name: elasticsearch
+        ...
+        volumeMounts:
+        - name: elasticsearch-certs
+          mountPath: /usr/share/elasticsearch/config/certs
+      volumes:
+      - name: elasticsearch-certs
+        secret:
+          secretName: elasticsearch-tls
+ 
+# 步骤5: 配置Elasticsearch以使用TLS证书和私钥
+...
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: certificate
+xpack.security.transport.ssl.keystore.path: /usr/share/elasticsearch/config/certs/elasticsearch.crt
+xpack.security.transport.ssl.keystore.password: <your_keystore_password>
+xpack.security.transport.ssl.truststore.path: /usr/share/elasticsearch/config/certs/elasticsearch.crt
+...
+```

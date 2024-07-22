@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.cluster.id }}-node
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: es-{{ .Values.cluster.id }}-headless
+  replicas: {{ .Values.es.node.data_node.replica }}
+  selector:
+    matchLabels:
+      app: elasticsearch
+      statefulset-name: {{ .Values.cluster.id }}-nodes
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+        statefulset-name: {{ .Values.cluster.id }}-nodes
+    spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: es-data
+              mountPath: /usr/share/elasticsearch/data
+        - name: increase-vm-max-map
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+        - name: increase-fd-ulimit
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "ulimit -n 655360"]
+          securityContext:
+            privileged: true
+      containers:
+        - name: elasticsearch
+          image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
+
+          imagePullPolicy: {{ .Values.es.image.pullPolicy }}
+          {{- with .Values.es.node.data_node.resources}}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - containerPort: 9200
+              name: elasticsearch
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: TZ
+              value: Asia/Shanghai
+            - name: node.data_node.name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: discovery.type
+              value: zen
+            - name: cluster.name
+              value: elasticsearch
+            - name: cluster.initial_master_nodes
+              value: "{{ include "cluster.initial_master_nodes" . }}"
+            {{- if $.Values.es.node.data_node.config.elasticsearch_yml.minimum_master_nodes}}
+            - name: discovery.zen.minimum_master_nodes
+              value: "{{ $.Values.es.node.data_node.config.elasticsearch_yml.minimum_master_nodes }}"
+            {{- end }}
+            - name: discovery.seed_hosts
+              value: "{{ include "discovery.seed_hosts" . }}"
+            - name: network.host
+              value: "0.0.0.0"
+            - name: "http.cors.allow-origin"
+              value: "*"
+            - name: "http.cors.enabled"
+              value: "true"
+            - name: "ES_JAVA_OPTS"
+              value: "-Xms{{ $.Values.es.node.data_node.config.jvm.heap }} -Xmx{{ $.Values.es.node.data_node.config.jvm.heap }}"
+          volumeMounts:
+            - name: es-data
+              mountPath: /usr/share/elasticsearch/data
+            - mountPath: /usr/share/elasticsearch/config
+              name: es-config
+ #             subPath: elasticsearch.yml
+      volumes:
+        - name: es-config
+          configMap:
+            name: {{ $.Values.cluster.id }}-elasticsearch-config
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: es-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName:  {{ $.Values.es.node.data_node.storage.storageClassName }}
+        resources:
+          requests:
+            storage: {{ $.Values.es.node.data_node.storage.size }}

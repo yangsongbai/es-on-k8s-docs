@@ -1,0 +1,8 @@
+1. Get the application URL by running these commands:
+
+{{- if .Values.kibana.enabled }}
+  echo "kibana url http://k8s-ingress-nginx-controller-test.elastic.elasticsearch:9200"
+{{- end }}
+
+echo "es url http://k8s-ingress-nginx-controller-test.elastic.elasticsearch:9200"
+

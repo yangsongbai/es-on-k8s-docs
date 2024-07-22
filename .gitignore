@@ -1,0 +1,13 @@
+# Default ignored files
+/workspace.xml
+/.idea/
+/bin/
+cover.out
+cover_cobertura_result.xml
+.cover
+*.tgz
+!chart/esoperator/charts/nginx-ingress-controller-5.3.4.tgz
+*.tar.gz
+es-startup-fs.sh
+liveness_probe-script.sh
+kibana-startup.sh

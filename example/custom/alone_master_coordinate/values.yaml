@@ -1,0 +1,68 @@
+repository: docker.elastic.co/elasticsearch
+cluster:
+  name: es-test
+  id: es-sxsecs
+  initial_master_nodes:
+
+es:
+  image:
+    name: elasticsearch
+    tag: "7.14.2"
+    pullPolicy: IfNotPresent
+  dnsPolicy: ClusterFirst
+  node:
+   master:
+     role: "m"
+     replica: 3
+     config:
+       elasticsearch_yml: ""
+       jvm: 1024m
+     storage:
+       size: 20Gi
+       storageClassName: "jdcloud-lvm"
+     resources:
+       limits:
+         cpu: "1"
+         memory: 2Gi
+       requests:
+         cpu: "1"
+         memory: 2Gi
+   coordinatings:
+     role: "i"
+     replica: 2
+     config:
+       elasticsearch-yml: ""
+       jvm: 1024m
+     storage:
+       size: 20Gi
+       storageClassName: "jdcloud-lvm"
+     resources:
+       limits:
+         cpu: "1"
+         memory: 2Gi
+       requests:
+         cpu: "1"
+         memory: 2Gi
+   data_node:
+     role: "d"
+     replica: 5
+     config:
+       elasticsearch-yml: ""
+       jvm: 1024m
+     storage:
+       size: 50Gi
+       storageClassName: "jdcloud-lvm"
+     resources:
+       limits:
+         cpu: "1"
+         memory: 2Gi
+       requests:
+         cpu: "1"
+         memory: 2Gi
+
+kibana:
+  image:
+    name: kibana
+    tag: "7.14.2"
+    pullPolicy: IfNotPresent
+  dnsPolicy: ClusterFirst

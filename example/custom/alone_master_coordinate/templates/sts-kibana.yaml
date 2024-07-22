@@ -1,0 +1,145 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/instance: {{ .Values.cluster.id }}
+    app.kubernetes.io/name: elasticsearch
+  name: {{ .Values.cluster.id }}-kibana
+  namespace: {{ .Values.cluster.id }}
+spec:
+  podManagementPolicy: Parallel
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Values.cluster.id }}
+      app.kubernetes.io/name: elasticsearch
+      statefulset-name: {{ .Values.cluster.id }}-kibana
+  serviceName: {{ .Values.cluster.id }}-kibana
+  template:
+    metadata:
+      annotations:
+        log.kibana.kibana_log: /usr/share/kibana/logs/kibana.log
+      labels:
+        app.kubernetes.io/instance: {{ .Values.cluster.id }}
+        app.kubernetes.io/name: elasticsearch
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.jdos.io/zone
+                    operator: In
+                    values:
+                      - jdos-north-1a
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    statefulset-name: {{ .Values.cluster.id }}-kibana
+                topologyKey: jdos.com/rack
+              weight: 100
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  statefulset-name: {{ .Values.cluster.id }}-kibana
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - args:
+            - touch /usr/share/kibana/logs/start_script.log ; /mnt/kibana/script/kibana-startup.sh
+              > /usr/share/kibana/logs/start_script.log 2>&1
+          command:
+            - /bin/sh
+            - -c
+          env:
+            - name: TZ
+              value: Asia/Shanghai
+          image: "{{ .Values.repository }}/{{ .Values.kibana.image.name }}:{{ .Values.kibana.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 6
+            httpGet:
+              httpHeaders:
+                - name: Authorization
+                  value: Basic xxxxxxx==
+              path: /
+              port: 5601
+              scheme: HTTP
+            initialDelaySeconds: 600
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 30
+          name: kibana
+          ports:
+            - containerPort: 5601
+              name: http
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 6
+            httpGet:
+              httpHeaders:
+                - name: Authorization
+                  value: Basic xxxxxxxxxxxxxxx==
+              path: /
+              port: 5601
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 30
+          resources:
+            limits:
+              cpu: "2"
+              memory: 4Gi
+            requests:
+              cpu: "2"
+              memory: 4Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /usr/share/kibana/logs/
+              name: kibana-log
+            - mountPath: /mnt/kibana/config/kibana-config
+              name: kibana-config
+            - mountPath: /mnt/kibana/script
+              name: kibana-startup
+              readOnly: true
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+        - name: {{ .Values.cluster.id }}-image-secret
+      initContainers:
+        - command:
+            - /bin/sh
+            - -c
+            - /mnt/kibana/script/kibana-check-es.sh
+          image: "{{ .Values.repository }}/{{ .Values.kibana.image.name }}:{{ .Values.kibana.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          name: check-es
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /mnt/kibana/script
+              name: kibana-startup
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsUser: 0
+      serviceAccount: {{ .Values.cluster.id }}
+      serviceAccountName: {{ .Values.cluster.id }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - emptyDir: {}
+          name: kibana-log
+        - name: kibana-config
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.cluster.id }}-kibana-kibana-config
+        - configMap:
+            defaultMode: 493
+            name: {{ .Values.cluster.id }}-kibana-startup
+            optional: false
+          name: kibana-startup
+  updateStrategy:
+    type: OnDelete

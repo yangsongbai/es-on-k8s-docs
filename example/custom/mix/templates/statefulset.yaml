@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: es
+spec:
+  serviceName: "elasticsearch-cluster"   #填写无头服务的名称
+  replicas: 5
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: es-data
+              mountPath: /usr/share/elasticsearch/data
+        - name: increase-vm-max-map
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+        - name: increase-fd-ulimit
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "ulimit -n 655360"]
+          securityContext:
+            privileged: true
+      containers:
+        - name: elasticsearch
+          image: elasticsearch:7.17.18
+          imagePullPolicy: Never
+          resources:
+            requests:
+              memory: "1000Mi"
+              cpu: "1000m"
+            limits:
+              memory: "2000Mi"
+              cpu: "2000m"
+          ports:
+            - containerPort: 9200
+              name: elasticsearch
+          env:
+            - name: node.name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: es-data                  #挂载数据
+              mountPath: /usr/share/elasticsearch/data
+      volumes:
+        - name: elasticsearch-config
+          configMap:                                #configMap挂载
+            name: sirc-elasticsearch-config
+  volumeClaimTemplates:                     #这步自动创建pvc，并挂载动态pv
+    - metadata:
+        name: es-data
+      spec:
+        accessModes: ["ReadWriteMany"]
+        storageClassName: nfs
+        resources:
+          requests:
+            storage: 10Gi

@@ -1,0 +1,259 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: es
+---
+#创建ConfigMap用于挂载配置文件
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sirc-elasticsearch-config
+  namespace: es
+  labels:
+    app: elasticsearch
+data:             #具体挂载的配置文件
+  elasticsearch.yml: |+
+    cluster.name: "es-cluster"
+    network.host: 0.0.0.0
+    http.cors.enabled: true
+    http.cors.allow-origin: "*"
+    http.cors.allow-headers: "*"
+    bootstrap.system_call_filter: false
+    xpack.security.enabled: false
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: es
+spec:
+  serviceName: "elasticsearch-cluster"   #填写无头服务的名称
+  replicas: 5
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: es-data
+              mountPath: /usr/share/elasticsearch/data
+        - name: increase-vm-max-map
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+        - name: increase-fd-ulimit
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "ulimit -n 65536"]
+          securityContext:
+            privileged: true
+      containers:
+        - name: elasticsearch
+          image: elasticsearch:7.17.18
+          imagePullPolicy: Never
+          resources:
+            requests:
+              memory: "1000Mi"
+              cpu: "1000m"
+            limits:
+              memory: "2000Mi"
+              cpu: "2000m"
+          ports:
+            - containerPort: 9200
+              name: elasticsearch
+          env:
+            - name: node.name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name  #metadata.name获取自己pod名称添加到变量MY_POD_NAME，status.hostIP获取自己ip等等可以自己去百度
+            - name: discovery.type
+              value: zen
+            - name: cluster.name
+              value: elasticsearch
+            - name: cluster.initial_master_nodes
+              value: "elasticsearch-0,elasticsearch-1,elasticsearch-2,elasticsearch-3,elasticsearch-4"
+            - name: discovery.zen.minimum_master_nodes
+              value: "3"
+            - name: discovery.seed_hosts
+              value: "elasticsearch-0.elasticsearch-cluster.es,elasticsearch-1.elasticsearch-cluster.es,elasticsearch-2.elasticsearch-cluster.es,elasticsearch-3.elasticsearch-cluster.es,elasticsearch-4.elasticsearch-cluster.es"
+            - name: network.host
+              value: "0.0.0.0"
+            - name: "http.cors.allow-origin"
+              value: "*"
+            - name: "http.cors.enabled"
+              value: "true"
+            - name: "number_of_shards"
+              value: "5"
+            - name: "number_of_replicas"
+              value: "1"
+            - name: path.data
+              value:  /usr/share/elasticsearch/data
+          volumeMounts:
+            - name: es-data                  #挂载数据
+              mountPath: /usr/share/elasticsearch/data
+      volumes:
+        - name: elasticsearch-config
+          configMap:                                #configMap挂载
+            name: sirc-elasticsearch-config
+  volumeClaimTemplates:                     #这步自动创建pvc，并挂载动态pv
+    - metadata:
+        name: es-data
+      spec:
+        accessModes: ["ReadWriteMany"]
+        storageClassName: nfs
+        resources:
+          requests:
+            storage: 10Gi
+#创建Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-cluster  #无头服务的名称，需要通过这个获取ip，与主机的对应关系
+  namespace: es
+  labels:
+    app: elasticsearch
+spec:
+  ports:
+    - port: 9200
+      name: elasticsearch
+  clusterIP: None
+  selector:
+    app: elasticsearch
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch   #service服务的名称，向外暴露端口
+  namespace: es
+  labels:
+    app: elasticsearch
+spec:
+  ports:
+    - port: 9200
+      name: elasticsearch
+  type: NodePort
+  selector:
+    app: elasticsearch
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-nodeport-service-0
+  namespace: es
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: elasticsearch-0
+  ports:
+    - protocol: TCP
+      port: 80        # Service 暴露的端口
+      targetPort: 9200   # Pod 中容器的端口
+      nodePort: 30000    # NodePort 类型的端口范围为 30000-32767，可以根据需要调整
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-nodeport-service-1
+  namespace: es
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: elasticsearch-1
+  ports:
+    - protocol: TCP
+      port: 80        # Service 暴露的端口
+      targetPort: 9200   # Pod 中容器的端口
+      nodePort: 30001    # NodePort 类型的端口范围为 30000-32767，可以根据需要调整
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-nodeport-service-2
+  namespace: es
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: elasticsearch-2
+  ports:
+    - protocol: TCP
+      port: 80        # Service 暴露的端口
+      targetPort: 9200   # Pod 中容器的端口
+      nodePort: 30002    # NodePort 类型的端口范围为 30000-32767，可以根据需要调整
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-nodeport-service-3
+  namespace: es
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: elasticsearch-3
+  ports:
+    - protocol: TCP
+      port: 80        # Service 暴露的端口
+      targetPort: 9200   # Pod 中容器的端口
+      nodePort: 30003    # NodePort 类型的端口范围为 30000-32767，可以根据需要调整
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-nodeport-service-4
+  namespace: es
+spec:
+  type: NodePort
+  selector:
+    statefulset.kubernetes.io/pod-name: elasticsearch-4
+  ports:
+    - protocol: TCP
+      port: 80        # Service 暴露的端口
+      targetPort: 9200   # Pod 中容器的端口
+      nodePort: 30004    # NodePort 类型的端口范围为 30000-32767，可以根据需要调整
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearchhead
+  namespace: es
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearchhead
+  template:
+    metadata:
+      labels:
+        app: elasticsearchhead
+    spec:
+      containers:
+        - name: elasticsearchhead
+          image: mobz/elasticsearch-head:5
+          ports:
+            - containerPort: 9100
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearchhead-service
+  namespace: es
+spec:
+  type: NodePort
+  ports:
+    - port: 9100
+      targetPort: 9100
+      nodePort: 30910  # 可根据需要选择合适的端口号
+  selector:
+    app: elasticsearchhead

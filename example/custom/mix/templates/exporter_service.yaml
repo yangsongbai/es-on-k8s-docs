@@ -1,0 +1,25 @@
+{{- if .Values.exporter.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: {{ .Release.Name }}-controller-manager
+    app.kubernetes.io/name: elasticsearch
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/deploy-by: {{ .Values.exporter.service.labels.managedBy }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/scheme: "http"
+    prometheus.io/port: "{{ .Values.exporter.service.port }}"
+    prometheus.io/path: "/metrics"
+  name: {{ .Release.Name }}-{{ .Values.exporter.service.name }}
+spec:
+  type: {{ .Values.exporter.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.exporter.service.port }}
+      targetPort: {{ .Values.exporter.containerPort }}
+  selector:
+    exporter-name: {{ .Release.Name }}-elastic-exporter
+{{- end }}

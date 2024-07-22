@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: {{ .Values.cluster.id }}
+    app.kubernetes.io/name: elasticsearch
+  name: {{ .Values.cluster.id }}-coordinatings
+  namespace: {{ .Values.cluster.id }}
+spec:
+  clusterIP: None
+  ports:
+    - name: http
+      port: 9200
+      protocol: TCP
+      targetPort: 9200
+  selector:
+    statefulset-name: {{ .Values.cluster.id }}-coordinatings
+  sessionAffinity: None
+  type: ClusterIP

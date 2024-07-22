@@ -1,0 +1,189 @@
+---
+# Source: elasticsearch/templates/ es-namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-es-namespace
+---
+# Source: elasticsearch/templates/es-config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: es-sxsecs-elasticsearch-config
+  namespace: my-es-namespace
+  labels:
+    app: elasticsearch
+    statefulset-name: es-sxsecs-nodes
+data:
+  elasticsearch.yml: |+
+    cluster.name: es-test
+    network.host: 0.0.0.0
+    http.cors.enabled: true
+    http.cors.allow-origin: "*"
+    http.cors.allow-headers: "*"
+    bootstrap.system_call_filter: false
+    xpack.security.enabled: false
+---
+# Source: elasticsearch/templates/es-svc-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: es-es-sxsecs-headless
+  namespace: my-es-namespace
+  labels:
+    app: elasticsearch
+    statefulset-name: es-sxsecs-nodes
+spec:
+  ports:
+    - name: http
+      port: 9200
+      protocol: TCP
+      targetPort: 9200
+  clusterIP: None
+  selector:
+    statefulset-name: es-sxsecs-nodes
+    app: elasticsearch
+---
+# Source: elasticsearch/templates/es-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: es-es-sxsecs
+  namespace: my-es-namespace
+  labels:
+    app: elasticsearch
+    statefulset-name: es-sxsecs-nodes
+spec:
+  ports:
+    - name: http
+      port: 9200
+      protocol: TCP
+      targetPort: 9200
+  selector:
+    statefulset-name: es-sxsecs-nodes
+    app: elasticsearch
+  sessionAffinity: None
+  type: ClusterIP
+---
+# Source: elasticsearch/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: es-sxsecs-node
+  namespace: my-es-namespace
+spec:
+  serviceName: es-es-sxsecs-headless
+  replicas: 3
+  selector:
+    matchLabels:
+      app: elasticsearch
+      statefulset-name: es-sxsecs-nodes
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+        statefulset-name: es-sxsecs-nodes
+    spec:
+      initContainers:
+        - name: fix-permissions
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: es-data
+              mountPath: /usr/share/elasticsearch/data
+        - name: increase-vm-max-map
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sysctl", "-w", "vm.max_map_count=262144"]
+          securityContext:
+            privileged: true
+        - name: increase-fd-ulimit
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "ulimit -n 655360"]
+          securityContext:
+            privileged: true
+      containers:
+        - name: elasticsearch
+          image: "docker.elastic.co/elasticsearch/elasticsearch:7.14.2"
+
+          imagePullPolicy: IfNotPresent
+          resources:
+            limits:
+              cpu: 2000m
+              memory: 2000Mi
+            requests:
+              cpu: 2000m
+              memory: 2000Mi
+          ports:
+            - containerPort: 9200
+              name: elasticsearch
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: TZ
+              value: Asia/Shanghai
+            - name: node.data_node.name
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: discovery.type
+              value: zen
+            - name: cluster.name
+              value: elasticsearch
+            - name: cluster.initial_master_nodes
+              value: "es-sxsecs-node-0,es-sxsecs-node-1,es-sxsecs-node-2"
+            - name: discovery.zen.minimum_master_nodes
+              value: "2"
+            - name: discovery.seed_hosts
+              value: "es-sxsecs-node-0.es-es-sxsecs-headless.my-es-namespace,es-sxsecs-node-1.es-es-sxsecs-headless.my-es-namespace,es-sxsecs-node-2.es-es-sxsecs-headless.my-es-namespace"
+            - name: network.host
+              value: "0.0.0.0"
+            - name: "http.cors.allow-origin"
+              value: "*"
+            - name: "http.cors.enabled"
+              value: "true"
+            - name: "ES_JAVA_OPTS"
+              value: "-Xms1024m -Xmx1024m"
+          volumeMounts:
+            - name: es-data
+              mountPath: /usr/share/elasticsearch/data
+            - mountPath: /usr/share/elasticsearch/config
+              name: es-config
+ #             subPath: elasticsearch.yml
+      volumes:
+        - name: es-config
+          configMap:
+            name: es-sxsecs-elasticsearch-config
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: es-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName:  cloud-lvm
+        resources:
+          requests:
+            storage: 20Gi

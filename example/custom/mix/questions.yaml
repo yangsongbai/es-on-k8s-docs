@@ -1,0 +1,274 @@
+customerResources:
+  labelSelector:
+    matchLabels:
+      app.kubernetes.io/name: elasticsearch
+      app.kubernetes.io/instance: "{{.Release.Name}}"
+questions:
+  - variable: clusterName
+    default: "es-test"
+    description: "Cluster name"
+    label: "Cluster name"
+    type: string
+    required: true
+    valid_chars: "^[A-Za-z]+[A-Za-z0-9\\-_]*$"
+    min_length: 1
+    max_length: 32
+  - variable: version
+    default: "7.9.3"
+    description: "Cluster version"
+    label: "Cluster version"
+    type: enum
+    required: true
+    options:
+      - "6.8.23"
+      - "7.10.3"
+
+  - variable: repository
+    default: "tpaas-registry-itg-vpc.jdcloud.com/es"
+    description: "Repository"
+    label: "Repository"
+    type: string
+    required: true
+    group: "Image config"
+  - variable: imagePullSecrets[0].name
+    default: "es-operator-secret"
+    description: "Image pull secrets"
+    label: "Pull secrets"
+    type: string
+    required: true
+    group: "Image config"
+  - variable: image.name
+    default: "elasticsearch"
+    description: "Elasticsearch image name"
+    label: "Elasticsearch image name"
+    type: string
+    required: true
+    group: "Image config"
+  - variable: image.tag
+    default: "7.9.3"
+    description: "Elasticsearch image tag"
+    label: "Elasticsearch image tag"
+    type: string
+    required: true
+    group: "Image config"
+  - variable: exporter.image.name
+    default: "elasticsearch_exporter"
+    description: "Exporter image name"
+    label: "Exporter image name"
+    type: string
+    required: true
+    group: "Image config"
+  - variable: exporter.image.tag
+    default: "1.1.0"
+    description: "Exporter image tag"
+    label: "Exporter image tag"
+    type: string
+    required: true
+    group: "Image config"
+
+  - variable: nodes.replicas
+    default: 3
+    description: "Data Node count"
+    label: "Node count"
+    type: int
+    min: 3
+    group: "Data node config"
+    required: true
+  - variable: nodes.diskSize
+    default: "20Gi"
+    description: "Data node disk size"
+    label: "Disk size"
+    type: string
+    required: true
+    group: "Data node config"
+  - variable: nodes.resource.requests.cpu
+    default: "2"
+    description: "CPU requests count for one data node"
+    label: "Requests CPU"
+    type: string
+    required: true
+    group: "Data node config"
+  - variable: nodes.resource.requests.memory
+    default: "8Gi"
+    description: "Memory requests size for one data node"
+    label: "Requests memory"
+    type: string
+    required: true
+    group: "Data node config"
+  - variable: nodes.resource.limits.cpu
+    default: "2"
+    description: "CPU limits count for one data node"
+    label: "Limits CPU"
+    type: string
+    required: true
+    group: "Data node config"
+  - variable: nodes.resource.limits.memory
+    default: "8Gi"
+    description: "Memory limits size for one data node"
+    label: "Limits memory"
+    type: string
+    required: true
+    group: "Data node config"
+  - variable: nodes.storageClass
+    default: "jdcloud-lvm"
+    description: "Data node storage type"
+    label: "Storage type"
+    type: enum
+    required: true
+    group: "Data node config"
+    options:
+      - "jdcloud-lvm"
+
+  - variable: masters.replicas
+    default: 0
+    description: "Master node count"
+    label: "Node count"
+    type: int
+    group: "Master config"
+    required: true
+  - variable: masters.diskSize
+    default: "20Gi"
+    description: "Master disk size"
+    label: "Disk size"
+    type: string
+    required: true
+    group: "Master config"
+  - variable: masters.resource.requests.cpu
+    default: "2"
+    description: "CPU requests count for one master"
+    label: "Requests CPU"
+    type: string
+    required: true
+    group: "Master config"
+  - variable: masters.resource.requests.memory
+    default: "8Gi"
+    description: "Memory requests size for one master"
+    label: "Requests memory"
+    type: string
+    required: true
+    group: "Master config"
+  - variable: masters.resource.limits.cpu
+    default: "2"
+    description: "CPU limits count for one master"
+    label: "Limits CPU"
+    type: string
+    required: true
+    group: "Master config"
+  - variable: masters.resource.limits.memory
+    default: "8Gi"
+    description: "Memory limits size for one master"
+    label: "Limits memory"
+    type: string
+    required: true
+    group: "Master config"
+  - variable: masters.storageClass
+    default: "jdcloud-lvm"
+    description: "Master storage type"
+    label: "Storage type"
+    type: enum
+    required: true
+    group: "Master config"
+    options:
+      - "jdcloud-lvm"
+
+  - variable: coordinatings.replicas
+    default: 0
+    description: "Coordinating node count"
+    label: "Node count"
+    type: int
+    group: "Coordinating config"
+    required: true
+  - variable: coordinatings.diskSize
+    default: "20Gi"
+    description: "Coordinating disk size"
+    label: "Disk size"
+    type: string
+    required: true
+    group: "Coordinating config"
+  - variable: coordinatings.resource.requests.cpu
+    default: "2"
+    description: "CPU requests count for one coordinating"
+    label: "Requests CPU"
+    type: string
+    required: true
+    group: "Coordinating config"
+  - variable: coordinatings.resource.requests.memory
+    default: "8Gi"
+    description: "Memory requests size for one coordinating"
+    label: "Requests memory"
+    type: string
+    required: true
+    group: "Coordinating config"
+  - variable: coordinatings.resource.limits.cpu
+    default: "2"
+    description: "CPU limits count for one coordinating"
+    label: "Limits CPU"
+    type: string
+    required: true
+    group: "Coordinating config"
+  - variable: coordinatings.resource.limits.memory
+    default: "8Gi"
+    description: "Memory limits size for one coordinating"
+    label: "Limits memory"
+    type: string
+    required: true
+    group: "Coordinating config"
+  - variable: coordinatings.storageClass
+    default: "jdcloud-lvm"
+    description: "Coordinating storage type"
+    label: "Storage type"
+    type: enum
+    required: true
+    group: "Coordinating config"
+    options:
+      - "jdcloud-lvm"
+
+  - variable: kibana.replicas
+    default: 1
+    description: "Kibana node count"
+    label: "Node count"
+    type: int
+    group: "Kibana config"
+    required: true
+  - variable: kibana.resource.requests.cpu
+    default: "2"
+    description: "CPU requests count for one kibana"
+    label: "Requests CPU"
+    type: string
+    required: true
+    group: "Kibana config"
+  - variable: kibana.resource.requests.memory
+    default: "4Gi"
+    description: "Memory requests size for one kibana"
+    label: "Requests memory"
+    type: string
+    required: true
+    group: "Kibana config"
+  - variable: kibana.resource.limits.cpu
+    default: "2"
+    description: "CPU limits count for one kibana"
+    label: "Limits CPU"
+    type: string
+    required: true
+    group: "Kibana config"
+  - variable: kibana.resource.limits.memory
+    default: "4Gi"
+    description: "Memory limits size for one kibana"
+    label: "Limits memory"
+    type: string
+    required: true
+    group: "Kibana config"
+  - variable: kibana.image.name
+    default: "kibana"
+    description: "Kibana image name"
+    label: "Kibana image name"
+    type: string
+    required: true
+    group: "Kibana config"
+  - variable: kibana.image.tag
+    default: "7.9.3"
+    description: "Kibana image tag"
+    label: "Kibana image tag"
+    type: string
+    required: true
+    group: "Kibana config"

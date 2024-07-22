@@ -1,0 +1,29 @@
+# ES镜像官方地址
+repository: docker.elastic.co/elasticsearch
+cluster:
+  name: es-test    # es集群名称
+  id: es-sxsecs    # es实例id，需要唯一
+es:
+  image:
+    name: elasticsearch  # 镜像名称
+    tag: "7.14.2"        # 镜像版本
+    pullPolicy: IfNotPresent    # es镜像拉取策略
+  dnsPolicy: ClusterFirst
+  node:
+    data_node:
+      replica: 3                   # 指定的es节点个数
+      config:
+        jvm:
+         heap: 1024m           # 建议配置为节点resources 的requests 的memory的一半，小于31GB
+        elasticsearch_yml:
+          minimum_master_nodes: 2     # 为 es节点个数/2 + 1；可以不配置
+      storage:
+        size: 20Gi        # 单节点的存储
+        storageClassName: "cloud-lvm"      # 存储所使用的storageClass
+      resources:         # 每个es的cpu和内存规格，如果使用超卖模式，limits可以配置小一点
+        limits:
+          cpu: "2000m"
+          memory: "2000Mi"
+        requests:
+          cpu: "2000m"
+          memory: "2000Mi"

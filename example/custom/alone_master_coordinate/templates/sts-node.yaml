@@ -1,0 +1,231 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/instance: {{ .Values.cluster.id }}
+    app.kubernetes.io/name: elasticsearch
+    statefulset-name: {{ .Values.cluster.id }}-nodes
+  name: {{ .Values.cluster.id }}-nodes
+spec:
+  podManagementPolicy: Parallel
+  replicas: {{ .Values.es.node.data_node.replica }}
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Values.cluster.id }}
+      app.kubernetes.io/name: elasticsearch
+      statefulset-name: {{ .Values.cluster.id }}-nodes
+  serviceName: {{ .Values.cluster.id }}-nodes
+  template:
+    metadata:
+      annotations:
+        log.elasticsearch.es_log: /usr/share/elasticsearch/logs/es.log
+        log.elasticsearch.gc_log: /usr/share/elasticsearch/logs/gc.log
+      labels:
+        app.kubernetes.io/instance: {{ .Values.cluster.id }}
+        app.kubernetes.io/name: elasticsearch
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: topology.jdos.io/zone
+                    operator: In
+                    values:
+                      - jdos-north-1a
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    statefulset-name: {{ .Values.cluster.id }}-nodes
+                topologyKey: jdos.jd.com/rack
+              weight: 100
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  statefulset-name: {{ .Values.cluster.id }}-nodes
+              topologyKey: kubernetes.io/hostname
+      containers:
+        - command:
+            - /bin/sh
+            - -c
+            - /mnt/elasticsearch/script/es-startup-fs.sh
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.namespace
+            - name: TZ
+              value: Asia/Shanghai
+          image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - /mnt/elasticsearch/script/liveness-probe-script.sh
+            failureThreshold: 6
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 30
+          name: elasticsearch
+          ports:
+            - containerPort: 9300
+              name: transport
+              protocol: TCP
+            - containerPort: 9200
+              name: http
+              protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            successThreshold: 1
+            tcpSocket:
+              port: 9300
+            timeoutSeconds: 5
+          resources:
+            limits:
+              cpu: "2"
+              memory: 8Gi
+            requests:
+              cpu: "1"
+              memory: 8Gi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /usr/share/elasticsearch/data
+              name: es-data
+            - mountPath: /usr/share/elasticsearch/logs
+              name: es-log
+            - mountPath: /usr/share/elasticsearch/plugins/
+              name: plugins
+            - mountPath: /usr/share/elasticsearch/config
+              name: es-config
+            - mountPath: /mnt/plugins
+              name: plugins-config-map
+            - mountPath: /mnt/elasticsearch/unicast-hosts
+              name: unicast-hosts
+            - mountPath: /mnt/elasticsearch/es-config
+              name: es-config-yaml
+            - mountPath: /mnt/elasticsearch/jvm-config
+              name: jvm-config
+            - mountPath: /mnt/elasticsearch/log4j2
+              name: log4j2
+            - mountPath: /mnt/elasticsearch/script
+              name: script
+              readOnly: true
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+        - name: {{ .Values.cluster.id }}-image-secret
+      initContainers:
+        - command:
+            - sh
+            - -c
+            - sysctl -w vm.max_map_count=262144
+            - '&&'
+            - sh
+            - -c
+            - sysctl -w fs.file-max=1048576
+          image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          name: sysctl
+          resources: {}
+          securityContext:
+            privileged: true
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        - command:
+            - sh
+            - -c
+            - /mnt/plugins/installPlugins.sh
+          image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          name: plugin
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+            - mountPath: /mnt/plugins
+              name: plugins-config-map
+            - mountPath: /usr/share/elasticsearch/plugins/
+              name: plugins
+            - mountPath: /usr/share/elasticsearch/logs
+              name: es-log
+            - mountPath: /usr/share/elasticsearch/config
+              name: es-config
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsUser: 0
+      serviceAccount: {{ .Values.cluster.id }}
+      serviceAccountName: {{ .Values.cluster.id }}
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - emptyDir: {}
+          name: es-log
+        - emptyDir: {}
+          name: es-config
+        - emptyDir: {}
+          name: plugins
+        - configMap:
+            defaultMode: 420
+            name: {{ .Values.cluster.id }}-nodes-unicast-hosts
+          name: unicast-hosts
+        - configMap:
+            defaultMode: 420
+            name: {{ .Values.cluster.id }}-nodes-es-config-yaml
+          name: es-config-yaml
+        - configMap:
+            defaultMode: 420
+            name: {{ .Values.cluster.id }}-nodes-jvm-config
+          name: jvm-config
+        - configMap:
+            defaultMode: 420
+            name: {{ .Values.cluster.id }}-log4j2
+          name: log4j2
+        - configMap:
+            defaultMode: 493
+            name: {{ .Values.cluster.id }}-script
+            optional: false
+          name: script
+        - configMap:
+            defaultMode: 493
+            name: {{ .Values.cluster.id }}-plugins-config-map
+            optional: false
+          name: plugins-config-map
+  updateStrategy:
+    type: OnDelete
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: es-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.es.node.data_node.storage.size }}
+        storageClassName: {{ .Values.es.node.data_node.storage.storageClassName }}
+        volumeMode: Filesystem

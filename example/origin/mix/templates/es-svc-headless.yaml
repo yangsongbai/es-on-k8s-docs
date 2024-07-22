@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: es-{{ .Values.cluster.id }}-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: elasticsearch
+    statefulset-name: {{ .Values.cluster.id }}-nodes
+spec:
+  ports:
+    - name: http
+      port: 9200
+      protocol: TCP
+      targetPort: 9200
+  clusterIP: None
+  selector:
+    statefulset-name: {{ .Values.cluster.id }}-nodes
+    app: elasticsearch

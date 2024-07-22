@@ -54,15 +54,29 @@ spec:
       containers:
         - name: elasticsearch
           image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
-
           imagePullPolicy: {{ .Values.es.image.pullPolicy }}
           {{- with .Values.es.node.data_node.resources}}
+          livenessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - /mnt/elasticsearch/script/liveness-probe-script.sh
+            failureThreshold: 6
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 30
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
+            - containerPort: 9300
+              name: transport
+              protocol: TCP
             - containerPort: 9200
-              name: elasticsearch
+              name: http
+              protocol: TCP
           env:
             - name: POD_IP
               valueFrom:
@@ -93,7 +107,7 @@ spec:
             - name: discovery.type
               value: zen
             - name: cluster.name
-              value: elasticsearch
+              value: "{{ $.Values.cluster.name }}"
             - name: cluster.initial_master_nodes
               value: "{{ include "cluster.initial_master_nodes" . }}"
             {{- if $.Values.es.node.data_node.config.elasticsearch_yml.minimum_master_nodes}}
@@ -116,10 +130,17 @@ spec:
             - mountPath: /usr/share/elasticsearch/config
               name: es-config
               subPath: elasticsearch.yml
+            - mountPath: /mnt/elasticsearch/script
+              name: script
       volumes:
         - name: es-config
           configMap:
             name: {{ $.Values.cluster.id }}-elasticsearch-config
+        - configMap:
+            defaultMode: 493
+            name: {{ .Values.cluster.id }}-script
+            optional: false
+          name: script
   volumeClaimTemplates:
     - apiVersion: v1
       kind: PersistentVolumeClaim

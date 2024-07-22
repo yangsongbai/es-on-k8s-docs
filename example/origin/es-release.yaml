@@ -16,7 +16,7 @@ metadata:
   name: es-sxsecs-nodes
   namespace: my-es-namespace
 spec:
-  maxUnavailable: 1
+  maxUnavailable: 1  # 设置 maxUnavailable 为 1，表示在维护期间最多只允许一个 Pod 离线
   selector:
     matchLabels:
       app.kubernetes.io/name: elasticsearch
@@ -42,6 +42,64 @@ data:
     http.cors.allow-headers: "*"
     bootstrap.system_call_filter: false
     xpack.security.enabled: false
+---
+# Source: elasticsearch/templates/es-script.yaml
+apiVersion: v1
+data:
+  es-startup-fs.sh: ""
+  liveness-probe-script.sh: |
+    #!/usr/bin/env bash
+    # fail should be called as a last resort to help the user to understand why the probe failed
+    function fail {
+      timestamp=$(date --iso-8601=seconds)
+      echo "{\"timestamp\": \"${timestamp}\", \"message\": \"liveness probe failed\", "$1"}" | tee /proc/1/fd/2 2> /dev/null
+      exit 1
+    }
+
+    READINESS_PROBE_TIMEOUT=${READINESS_PROBE_TIMEOUT:=3}
+
+    # $PROBE_USERNAME
+    PROBE_USERNAME=$ELASTIC_USER
+    #
+    PROBE_PASSWORD=$ELASTIC_PASSWORD
+
+    # setup basic auth if credentials are available
+    if [ -n "${PROBE_USERNAME}" ] && [ -n "${PROBE_PASSWORD}" ]; then
+      BASIC_AUTH="-u ${PROBE_USERNAME}:${PROBE_PASSWORD}"
+    else
+      BASIC_AUTH=''
+    fi
+
+    # Check if we are using IPv6
+    if [[ $POD_IP =~ .*:.* ]]; then
+      LOOPBACK="[::1]"
+    else
+      LOOPBACK=127.0.0.1
+    fi
+
+    # request Elasticsearch on /
+    # we are turning globbing off to allow for unescaped [] in case of IPv6
+    ENDPOINT="http://${LOOPBACK}:9200/"
+    # 双百分号是为了转义百分号
+    status=$(curl -o /dev/null -w "%{http_code}" --max-time ${READINESS_PROBE_TIMEOUT} -XGET -g -s ${BASIC_AUTH} $ENDPOINT)
+    curl_rc=$?
+
+    if [[ ${curl_rc} -ne 0 ]]; then
+      fail "\"curl_rc\": \"${curl_rc}\""
+    fi
+
+    # ready if status code 200, 503 is tolerable if ES version is 6.x
+    if [[ ${status} == "200" ]]; then
+      exit 0
+    else
+      fail " \"status\": \"${status}\" "
+    fi
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: es-sxsecs
+    app.kubernetes.io/name: elasticsearch
+  name: es-sxsecs-script
 ---
 # Source: elasticsearch/templates/es-svc-headless.yaml
 apiVersion: v1
@@ -118,7 +176,7 @@ spec:
                 operator: In
                 values:
                 - hb-north-1a
-        podAntiAffinity:
+        podAntiAffinity:    # pod反亲和
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
@@ -149,8 +207,18 @@ spec:
       containers:
         - name: elasticsearch
           image: "docker.elastic.co/elasticsearch/elasticsearch:7.14.2"
-
           imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - /mnt/elasticsearch/script/liveness-probe-script.sh
+            failureThreshold: 6
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 30
           resources:
             limits:
               cpu: 2000m
@@ -159,8 +227,12 @@ spec:
               cpu: 2000m
               memory: 2000Mi
           ports:
+            - containerPort: 9300
+              name: transport
+              protocol: TCP
             - containerPort: 9200
-              name: elasticsearch
+              name: http
+              protocol: TCP
           env:
             - name: POD_IP
               valueFrom:
@@ -184,14 +256,14 @@ spec:
                   fieldPath: metadata.namespace
             - name: TZ
               value: Asia/Shanghai
-            - name: node.data_node.name
+            - name: node.name
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
             - name: discovery.type
               value: zen
             - name: cluster.name
-              value: elasticsearch
+              value: "es-test"
             - name: cluster.initial_master_nodes
               value: "es-sxsecs-node-0,es-sxsecs-node-1,es-sxsecs-node-2"
             - name: discovery.zen.minimum_master_nodes
@@ -211,11 +283,18 @@ spec:
               mountPath: /usr/share/elasticsearch/data
             - mountPath: /usr/share/elasticsearch/config
               name: es-config
- #             subPath: elasticsearch.yml
+              subPath: elasticsearch.yml
+            - mountPath: /mnt/elasticsearch/script
+              name: script
       volumes:
         - name: es-config
           configMap:
             name: es-sxsecs-elasticsearch-config
+        - configMap:
+            defaultMode: 493
+            name: es-sxsecs-script
+            optional: false
+          name: script
   volumeClaimTemplates:
     - apiVersion: v1
       kind: PersistentVolumeClaim

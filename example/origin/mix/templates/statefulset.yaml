@@ -86,7 +86,7 @@ spec:
                   fieldPath: metadata.namespace
             - name: TZ
               value: Asia/Shanghai
-            - name: node.data_node.name
+            - name: node.name
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
@@ -115,7 +115,7 @@ spec:
               mountPath: /usr/share/elasticsearch/data
             - mountPath: /usr/share/elasticsearch/config
               name: es-config
- #             subPath: elasticsearch.yml
+              subPath: elasticsearch.yml
       volumes:
         - name: es-config
           configMap:

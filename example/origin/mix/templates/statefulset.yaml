@@ -29,6 +29,9 @@ spec:
                 matchLabels:
                   statefulset-name: {{ .Values.cluster.id }}-nodes
               topologyKey: kubernetes.io/hostname
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+        - name: {{ .Values.imagePullSecrets.name }}
       initContainers:
         - name: fix-permissions
           image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
@@ -55,7 +58,6 @@ spec:
         - name: elasticsearch
           image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
           imagePullPolicy: {{ .Values.es.image.pullPolicy }}
-          {{- with .Values.es.node.data_node.resources}}
           livenessProbe:
             exec:
               command:
@@ -67,6 +69,7 @@ spec:
             periodSeconds: 20
             successThreshold: 1
             timeoutSeconds: 30
+          {{- with .Values.es.node.data_node.resources}}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}

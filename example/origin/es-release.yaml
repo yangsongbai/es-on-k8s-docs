@@ -5,24 +5,6 @@ kind: Namespace
 metadata:
   name: my-es-namespace
 ---
-# Source: elasticsearch/templates/es_node_pod_disruption_budget.yaml
-apiVersion: policy/v1beta1
-kind: PodDisruptionBudget
-metadata:
-  labels:
-    app.kubernetes.io/instance: es-sxsecs
-    app.kubernetes.io/name: elasticsearch
-    statefulset-name: es-sxsecs-nodes
-  name: es-sxsecs-nodes
-  namespace: my-es-namespace
-spec:
-  maxUnavailable: 1  # 设置 maxUnavailable 为 1，表示在维护期间最多只允许一个 Pod 离线
-  selector:
-    matchLabels:
-      app.kubernetes.io/name: elasticsearch
-      app.kubernetes.io/instance: es-sxsecs
-      statefulset-name: es-sxsecs-nodes
----
 # Source: elasticsearch/templates/es-config.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -183,9 +165,12 @@ spec:
                 matchLabels:
                   statefulset-name: es-sxsecs-nodes
               topologyKey: kubernetes.io/hostname
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+        - name: my-secret
       initContainers:
         - name: fix-permissions
-          image: "docker.elastic.co/elasticsearch/elasticsearch:7.14.2"
+          image: "zhangc-cn-east-2.jcr.service.jdcloud.com/elasticsearch:7.14.2"
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
           securityContext:
@@ -194,20 +179,20 @@ spec:
             - name: es-data
               mountPath: /usr/share/elasticsearch/data
         - name: increase-vm-max-map
-          image: "docker.elastic.co/elasticsearch/elasticsearch:7.14.2"
+          image: "zhangc-cn-east-2.jcr.service.jdcloud.com/elasticsearch:7.14.2"
           imagePullPolicy: IfNotPresent
           command: ["sysctl", "-w", "vm.max_map_count=262144"]
           securityContext:
             privileged: true
         - name: increase-fd-ulimit
-          image: "docker.elastic.co/elasticsearch/elasticsearch:7.14.2"
+          image: "zhangc-cn-east-2.jcr.service.jdcloud.com/elasticsearch:7.14.2"
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c", "ulimit -n 655360"]
           securityContext:
             privileged: true
       containers:
         - name: elasticsearch
-          image: "docker.elastic.co/elasticsearch/elasticsearch:7.14.2"
+          image: "zhangc-cn-east-2.jcr.service.jdcloud.com/elasticsearch:7.14.2"
           imagePullPolicy: IfNotPresent
           livenessProbe:
             exec:

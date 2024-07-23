@@ -1,8 +1,12 @@
 # ES镜像官方地址
-repository: docker.elastic.co/elasticsearch
+#repository: docker.elastic.co/elasticsearch
+repository: zhangc-cn-east-2.jcr.service.jdcloud.com
+
 cluster:
   name: es-test    # es集群名称
   id: es-sxsecs    # es实例id，需要唯一
+imagePullSecrets:
+  name: my-secret
 es:
   image:
     name: elasticsearch  # 镜像名称

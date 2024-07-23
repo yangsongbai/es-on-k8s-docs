@@ -31,7 +31,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       initContainers:
         - name: fix-permissions
-          image: busybox
+          image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
           securityContext:
@@ -40,13 +40,13 @@ spec:
             - name: es-data
               mountPath: /usr/share/elasticsearch/data
         - name: increase-vm-max-map
-          image: busybox
+          image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
           imagePullPolicy: IfNotPresent
           command: ["sysctl", "-w", "vm.max_map_count=262144"]
           securityContext:
             privileged: true
         - name: increase-fd-ulimit
-          image: busybox
+          image: "{{ .Values.repository }}/{{ .Values.es.image.name }}:{{ .Values.es.image.tag }}"
           imagePullPolicy: IfNotPresent
           command: ["sh", "-c", "ulimit -n 655360"]
           securityContext:

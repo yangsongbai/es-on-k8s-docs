@@ -66,7 +66,7 @@ spec:
                 - /mnt/elasticsearch/script/liveness-probe-script.sh
             failureThreshold: 6
             initialDelaySeconds: 180
-            periodSeconds: 20
+            periodSeconds: 10
             successThreshold: 1
             timeoutSeconds: 30
           {{- with .Values.es.node.data_node.resources}}
@@ -159,7 +159,7 @@ spec:
         name: es-data
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName:  {{ $.Values.es.node.data_node.storage.storageClassName }}
+        storageClassName: {{ $.Values.es.node.data_node.storage.storageClassName }}
         resources:
           requests:
             storage: {{ $.Values.es.node.data_node.storage.size }}

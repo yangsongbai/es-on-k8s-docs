@@ -68,6 +68,13 @@ kubectl apply -f es-sxsecs-node.yaml -n  my-es-namespace
 ```
 kubectl get sts es-sxsecs-node  -o yaml  -n  my-es-namespace > es-sxsecs-node.yaml
 ```
+1 更新每个节点对应的pvc大小       
+2 删除sts,但不级联删除pod      
+```
+kubectl delete sts <sts-name> --cascade=false  
+```
+3 修改sts模版中的磁盘大小，重新apply 创建sts    
+
 修改其中volumeClaimTemplates下的`storage字段的值`，比如从节点20Gi扩容到100Gi，storage的值修改成100Gi即可；   
 然后执行如下命令完成水平扩容
 ```

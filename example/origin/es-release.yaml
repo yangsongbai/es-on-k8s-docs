@@ -268,6 +268,10 @@ spec:
               value: "false"
             - name: "ES_JAVA_OPTS"
               value: "-Xms1024m -Xmx1024m"
+            - name: "path.data"
+              value: "/usr/share/elasticsearch/data"
+            - name: "path.logs"
+              value: "/usr/share/elasticsearch/logs"
           volumeMounts:
             - name: es-data
               mountPath: /usr/share/elasticsearch/data

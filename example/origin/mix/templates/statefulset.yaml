@@ -131,6 +131,10 @@ spec:
               value: "false"
             - name: "ES_JAVA_OPTS"
               value: "-Xms{{ $.Values.es.node.data_node.config.jvm.heap }} -Xmx{{ $.Values.es.node.data_node.config.jvm.heap }}"
+            - name: "path.data"
+              value: "/usr/share/elasticsearch/data"
+            - name: "path.logs"
+              value: "/usr/share/elasticsearch/logs"
           volumeMounts:
             - name: es-data
               mountPath: /usr/share/elasticsearch/data

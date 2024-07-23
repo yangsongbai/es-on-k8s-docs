@@ -122,20 +122,24 @@ spec:
               value: "*"
             - name: "http.cors.enabled"
               value: "true"
+            - name: "xpack.security.enabled"
+              value: "false"
+            - name: "bootstrap.system_call_filter"
+              value: "false"
             - name: "ES_JAVA_OPTS"
               value: "-Xms{{ $.Values.es.node.data_node.config.jvm.heap }} -Xmx{{ $.Values.es.node.data_node.config.jvm.heap }}"
           volumeMounts:
             - name: es-data
               mountPath: /usr/share/elasticsearch/data
-            - mountPath: /usr/share/elasticsearch/config
-              name: es-config
-              subPath: elasticsearch.yml
+#            - mountPath: /usr/share/elasticsearch/config
+#              name: es-config
+#              subPath: elasticsearch.yml
             - mountPath: /mnt/elasticsearch/script
               name: script
       volumes:
-        - name: es-config
-          configMap:
-            name: {{ $.Values.cluster.id }}-elasticsearch-config
+ #       - name: es-config
+ #         configMap:
+ #           name: {{ $.Values.cluster.id }}-elasticsearch-config
         - configMap:
             defaultMode: 493
             name: {{ .Values.cluster.id }}-script

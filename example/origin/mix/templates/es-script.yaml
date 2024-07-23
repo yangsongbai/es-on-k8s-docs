@@ -54,3 +54,4 @@ metadata:
     app.kubernetes.io/instance: {{ .Values.cluster.id }}
     app.kubernetes.io/name: elasticsearch
   name: {{ .Values.cluster.id }}-script
+  namespace: {{ .Release.Namespace }}

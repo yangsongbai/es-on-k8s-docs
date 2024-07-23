@@ -100,6 +100,7 @@ metadata:
     app.kubernetes.io/instance: es-sxsecs
     app.kubernetes.io/name: elasticsearch
   name: es-sxsecs-script
+  namespace: my-es-namespace
 ---
 # Source: elasticsearch/templates/es-svc-headless.yaml
 apiVersion: v1
@@ -276,20 +277,24 @@ spec:
               value: "*"
             - name: "http.cors.enabled"
               value: "true"
+            - name: "xpack.security.enabled"
+              value: "false"
+            - name: "bootstrap.system_call_filter"
+              value: "false"
             - name: "ES_JAVA_OPTS"
               value: "-Xms1024m -Xmx1024m"
           volumeMounts:
             - name: es-data
               mountPath: /usr/share/elasticsearch/data
-            - mountPath: /usr/share/elasticsearch/config
-              name: es-config
-              subPath: elasticsearch.yml
+#            - mountPath: /usr/share/elasticsearch/config
+#              name: es-config
+#              subPath: elasticsearch.yml
             - mountPath: /mnt/elasticsearch/script
               name: script
       volumes:
-        - name: es-config
-          configMap:
-            name: es-sxsecs-elasticsearch-config
+ #       - name: es-config
+ #         configMap:
+ #           name: es-sxsecs-elasticsearch-config
         - configMap:
             defaultMode: 493
             name: es-sxsecs-script

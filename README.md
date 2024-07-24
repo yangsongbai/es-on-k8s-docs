@@ -60,6 +60,33 @@ kubectl get sts es-sxsecs-node  -o yaml  -n  my-es-namespace > es-sxsecs-node.ya
 kubectl apply -f es-sxsecs-node.yaml -n  my-es-namespace
 ```
 
+## 水平缩容
+注意⚠️： 缩容个数一次性不能超过一半；[ElasticSearch集群灾难：别放弃，也许能再抢救一下](https://www.51cto.com/article/785498.html)   
+将要缩容的节点上的数据排除走,建议使用节点名称，作为排除参数，因为容器ip会发生变化；sts缩容只能从前往后缩容（pod编号从大到小），    
+不能指定特定节点缩容掉； 如果有`es-sxsecs-node-0，es-sxsecs-node-1,es-sxsecs-node-2` 三个节点要缩容掉一个，则排除数据命令如下；
+```
+PUT _cluster/settings
+{
+  "persistent": {
+    "cluster.routing.allocation.exclude._name" : "es-sxsecs-node-2"
+  }
+}
+```
+等待数据排除完成，查看节点上数据有数据,如果没有数据则可以进行缩容个数 
+```
+GET _cat/allocation?v
+```
+
+在k8s中执行命令，或者当前的集群sts值
+```
+kubectl get sts es-sxsecs-node  -o yaml  -n  my-es-namespace > es-sxsecs-node.yaml
+```
+修改其中spec下的`replicas字段的值`，比如从3节点扩容到5节点，replicas的值修改成5即可；   
+然后执行如下命令完成水平扩容
+```
+kubectl apply -f es-sxsecs-node.yaml -n  my-es-namespace
+```
+
 
 ## 垂直扩容
 **⚠注意️**： 保证所有索引都有副本，且盘支持垂直扩容，不会抹除数据;不建议垂直扩容，因为当前不会判断，集群是否green,再进行下一个节点变配，变配会有一定风险，集群可能会处于red状态写入失败，查询失败或者数据不全    
